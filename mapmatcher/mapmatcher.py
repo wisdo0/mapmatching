@@ -32,18 +32,13 @@ __copyright__   = ""
 
 
 import sys
+from math import exp, sqrt
+import os
+import arcpy
+arcpy.env.overwriteOutput = True
+import networkx as nx
+import time
 
-try:
-    from math import exp, sqrt
-    import os
-    import arcpy
-    arcpy.env.overwriteOutput = True
-    import networkx as nx
-    import time
-
-except ImportError:
-    print "Error: missing one of the libraries (arcpy, networkx)"
-    sys.exit()
 
 
 
@@ -133,7 +128,7 @@ def mapMatch(track, segments, decayconstantNet = 30, decayConstantEu = 10, maxDi
     max_prob = max(value["prob"] for value in V[-1].values())
     previous = None
     if max_prob == 0:
-        print " probabilities fall to zero (network distances in data are too large, try increasing network decay parameter)"
+        print (" probabilities fall to zero (network distances in data are too large, try increasing network decay parameter)")
 
     # Get most probable ending state and its backtrack
     for st, data in V[-1].items():
@@ -157,21 +152,21 @@ def mapMatch(track, segments, decayconstantNet = 30, decayConstantEu = 10, maxDi
     print("--- Viterbi backtracking: %s seconds ---" % (intertime2 - intertime1))
 
     #Clean the path (remove double segments and crossings) (only in full path option)
-    print "path length before cleaning :" +str(len(opt))
+    print ("path length before cleaning :" +str(len(opt)))
     opt = cleanPath(opt, endpoints)
     intertime3 = time.time()
     print("--- Path cleaning: %s seconds ---" % (intertime3 - intertime2))
-    print "final length: "+str(len(opt))
+    print ("final length: "+str(len(opt)))
     pointstr= [str(g.firstPoint.X)+' '+str(g.firstPoint.Y) for g in points]
     optstr= [str(i) for i in opt]
-    print 'The path for points ['+' '.join(pointstr)+'] is: '
-    print '[' + ' '.join(optstr) + '] with highest probability of %s' % max_prob
+    print ('The path for points ['+' '.join(pointstr)+'] is: '
+    print ('[' + ' '.join(optstr) + '] with highest probability of %s' % max_prob))
 
     #If only a single segment candidate should be returned for each point:
     if addfullpath == False:
         opt = getpointMatches(points,opt)
         optstr= [str(i) for i in opt]
-        print "Individual point matches: "+'[' + ' '.join(optstr) + ']'
+        print ("Individual point matches: "+'[' + ' '.join(optstr) + ']')
         intertime4 = time.time()
         print("--- Picking point matches: %s seconds ---" % (intertime4 - intertime3))
 
@@ -179,13 +174,13 @@ def mapMatch(track, segments, decayconstantNet = 30, decayConstantEu = 10, maxDi
 
 #Fishes out a 1-to-1 list of path segments nearest to the list of points in the track (not contiguous, may contain repeated segments)
 def getpointMatches(points, path):
-    qr =  '"OBJECTID" IN ' +str(tuple(path))
+    qr =  '"osm_id" IN ' +str(tuple(path))
     arcpy.SelectLayerByAttribute_management('segments_lyr',"NEW_SELECTION", qr)
     opta = []
     for point in points:
         sdist = 100000
         candidate = ''
-        cursor = arcpy.da.SearchCursor('segments_lyr', ["OBJECTID", "SHAPE@"])
+        cursor = arcpy.da.SearchCursor('segments_lyr', ["osm_id", "SHAPE@"])
         for row in cursor:
             #compute the spatial distance
             dist = point.distanceTo(row[1])
@@ -264,7 +259,7 @@ def exportPath(opt, trackname):
     """
     start_time = time.time()
     opt=getUniqueList(opt)
-    qr =  '"OBJECTID" IN ' +str(tuple(opt))
+    qr =  '"osm_id" IN ' +str(tuple(opt))
     outname = (os.path.splitext(os.path.basename(trackname))[0][:9])+'_pth'
     arcpy.SelectLayerByAttribute_management('segments_lyr',"NEW_SELECTION", qr)
     try:
@@ -321,7 +316,7 @@ def getSegmentCandidates(point, segments, decayConstantEu, maxdist=50):
     arcpy.SelectLayerByLocation_management ("segments_lyr", "WITHIN_A_DISTANCE", point, maxdist)
     candidates = {}
     #Go through these, compute distances, probabilities and store them as candidates
-    cursor = arcpy.da.SearchCursor('segments_lyr', ["OBJECTID", "SHAPE@"])
+    cursor = arcpy.da.SearchCursor('segments_lyr', ["osm_id", "SHAPE@"])
     row =[]
     for row in cursor:
         feat = row[1]
@@ -340,7 +335,7 @@ def getClosestSegment(point, segments, maxdist):
     arcpy.SelectLayerByLocation_management ("segments_lyr", "WITHIN_A_DISTANCE", point, maxdist)
 
     #Go through these, compute distances, probabilities and store them as candidates
-    cursor = arcpy.da.SearchCursor('segments_lyr', ["OBJECTID", "SHAPE@"])
+    cursor = arcpy.da.SearchCursor('segments_lyr', ["osm_id", "SHAPE@"])
     sdist = 100000
     candidate = ''
     for row in cursor:
@@ -415,7 +410,7 @@ def getNetworkTransP(s1, s2, graph, endpoints, segmentlengths, pathnodes, decayc
                         subpath = []
                         # get object ids for path edges
                         for e in path_edges:
-                            oid = graph[e[0]][e[1]]["OBJECTID"]
+                            oid = graph[e[0]][e[1]]["osm_id"]
                             subpath.append(oid)
                         #print "oid path:"+str(subpath)
                     else:
@@ -443,10 +438,10 @@ def getTrackPoints(track, segments):
             geom = row[0]
             #geom = row[0].projectAs(arcpy.Describe(segments).spatialReference)
             trackpoints.append(row[0])
-        print 'track size:' + str(len(trackpoints))
+        print ('track size:' + str(len(trackpoints)))
         return trackpoints
     else:
-        print "Track file does not exist!"
+        print ("Track file does not exist!")
 
 def getNetworkGraph(segments,segmentlengths):
     """
@@ -455,26 +450,26 @@ def getNetworkGraph(segments,segmentlengths):
     """
     #generate the full network path for GDAL to be able to read the file
     path =str(os.path.join(arcpy.env.workspace,segments))
-    print path
+    print (path)
     if arcpy.Exists(path):
         g = nx.read_shp(path)
         #This selects the largest connected component of the graph
         sg = list(nx.connected_component_subgraphs(g.to_undirected()))[0]
-        print "graph size (excluding unconnected parts): "+str(len(g))
+        print ("graph size (excluding unconnected parts): "+str(len(g)))
         # Get the length for each road segment and append it as an attribute to the edges in the graph.
         for n0, n1 in sg.edges():
-            oid = sg[n0][n1]["OBJECTID"]
+            oid = sg[n0][n1]["osm_id"]
             sg[n0][n1]['length'] = segmentlengths[oid]
         return sg
     else:
-        print "network file not found on path: "+path
+        print ("network file not found on path: "+path)
 
 def getSegmentInfo(segments):
     """
     Builds a dictionary for looking up endpoints of network segments (needed only because networkx graph identifies edges by nodes)
     """
     if arcpy.Exists(segments):
-        cursor = arcpy.da.SearchCursor(segments, ["OBJECTID", "SHAPE@"])
+        cursor = arcpy.da.SearchCursor(segments, ["osm_id", "SHAPE@"])
         endpoints = {}
         segmentlengths = {}
         for row in cursor:
@@ -482,13 +477,13 @@ def getSegmentInfo(segments):
               segmentlengths[row[0]]= row[1].length
         del row
         del cursor
-        print "Number of segments: "+ str(len(endpoints))
+        print ("Number of segments: "+ str(len(endpoints)))
         #prepare segment layer for fast search
         arcpy.Delete_management('segments_lyr')
         arcpy.MakeFeatureLayer_management(segments, 'segments_lyr')
         return (endpoints,segmentlengths)
     else:
-        print "segment file does not exist!"
+        print ("segment file does not exist!")
 
 
 if __name__ == '__main__':
