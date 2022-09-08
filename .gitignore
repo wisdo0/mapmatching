@@ -47,3 +47,15 @@ Temporary Items
 .apdisk
 *.csv
 *.graphml
+*.txt
+tra.ipynb
+drive/network/edges.cpg
+drive/network/edges.dbf
+drive/network/edges.prj
+drive/network/edges.shp
+drive/network/edges.shx
+drive/network/nodes.cpg
+drive/network/nodes.prj
+drive/network/nodes.shp
+drive/network/nodes.dbf
+drive/network/nodes.shx
